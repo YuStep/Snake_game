@@ -5,6 +5,9 @@
 #include <ncurses.h>
 #include <string.h>
 
+int rost = 0;
+bool food_flag = 0;
+int scores = 0;
 struct position_t {
     int x;
     int y;
@@ -104,13 +107,23 @@ render_state(struct game_state_t *state) {
         struct snake_body_part_t *current = state->snake;
         mvwaddch(state->win, current->position.y + 1, current->position.x + 1, '0' | COLOR_PAIR(1));
         current = current->next;
+        int rows, cols;
+        getmaxyx(state->win, rows, cols);
+        char score[25];
+        sprintf(score,"%i",scores);
+        char msg[25]= "Score: ";
+        strcat(msg,score);
+        mvwprintw(state->win, rows-1, (cols - strlen(msg)) / 2, msg);
         while (current) {
             mvwaddch(state->win, current->position.y + 1, current->position.x + 1, 'O' | COLOR_PAIR(1));
             current = current->next;
         }
 
         // render food
-        mvwaddch(state->win, state->food->position.y + 1, state->food->position.x + 1, 'X' | COLOR_PAIR(2));
+        
+        char food_symbol = 48+state->food->value;
+        
+        mvwaddch(state->win, state->food->position.y + 1, state->food->position.x + 1, food_symbol | COLOR_PAIR(2));
     } else {
         int rows, cols;
         getmaxyx(state->win, rows, cols);
@@ -247,16 +260,26 @@ move_snake(struct game_state_t *state) {
 
         return;
     }
+    
+    if (positions_equal(&new_head_pos, &(state->food->position))){
+    	rost = state->food->value;
+    	scores+=rost;
+    	food_flag = true;
+    }
 
     // check if the snake consumes the food
-    if (positions_equal(&new_head_pos, &(state->food->position))) {
+    if (rost  > 0) {
         // move the snakes head to the new (food) position, keep the tail
         struct snake_body_part_t *new_part = malloc(sizeof(*new_part));
         new_part->position = new_head_pos;
         new_part->next = state->snake;
         state->snake = new_part;
         // spawn new food
-        spawn_food(state);
+        if (food_flag){
+        	spawn_food(state);
+        	food_flag = false;
+        }
+        rost--;
     } else {
         // move the snakes head to the new position and the last body part from its tail
         struct snake_body_part_t *current_part = state->snake;
@@ -317,6 +340,7 @@ spawn_food(struct game_state_t *state) {
                     searching = 0;
                     state->food->position.x = x;
                     state->food->position.y = y;
+                    state->food->value = rand()%4+1;
                 }
                 ++current_food_idx;
             }
